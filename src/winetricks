@@ -1503,8 +1503,20 @@ w_download_to()
             1) _W_agent="Mozilla/5.0 (compatible; Konqueror/2.1.1; X11)" ;;
             *) _W_agent="" ;;
         esac
-
-        if [ "${WINETRICKS_DOWNLOADER}" = "aria2c" ] ; then
+        if [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+            epm tool eget \
+                -O "${_W_file}" \
+                -nd \
+                -c\
+                --read-timeout 300 \
+                --retry-connrefused \
+                --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+                --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
+                --header "Accept: */*" \
+                ${_W_cookiejar:+--load-cookies "${_W_cookiejar}"} \
+                ${_W_agent:+--user-agent="${_W_agent}"} \
+                "${_W_url}"
+        elif [ "${WINETRICKS_DOWNLOADER}" = "aria2c" ] ; then
             # Note: aria2c wants = for most options or silently fails
 
             # (Slightly fancy) aria2c support
@@ -2851,8 +2863,10 @@ winetricks_download_setup()
 {
     # shellcheck disable=SC2104
     case "${WINETRICKS_DOWNLOADER}" in
-        aria2c|curl|wget|fetch) : ;;
-        "") if [ -x "$(command -v aria2c 2>/dev/null)" ] ; then
+        eget|aria2c|curl|wget|fetch) : ;;
+        "") if [ -x "$(command -v epm 2>/dev/null)" ] ; then
+                WINETRICKS_DOWNLOADER="eget"
+            elif [ -x "$(command -v aria2c 2>/dev/null)" ] ; then
                 WINETRICKS_DOWNLOADER="aria2c"
             elif [ -x "$(command -v wget 2>/dev/null)" ] ; then
                 WINETRICKS_DOWNLOADER="wget"
@@ -2893,7 +2907,10 @@ winetricks_dl_url_to_stdout()
     # Not using w_try here as it adds extra output, breaking things.
     # FIXME: add a w_try_quiet() wrapper around w_try() that doesn't print the
     # Executing ... stuff, but still does error checking
-    if [ "${WINETRICKS_DOWNLOADER}" = "wget" ] ; then
+    if [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+        epm tool eget -q -O - --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+        --tries "${WINETRICKS_DOWNLOADER_RETRIES}" "$1"
+    elif [ "${WINETRICKS_DOWNLOADER}" = "wget" ] ; then
         ${torify} wget -q -O - --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
         --tries "${WINETRICKS_DOWNLOADER_RETRIES}" "$1"
     elif [ "${WINETRICKS_DOWNLOADER}" = "curl" ] ; then
@@ -18837,7 +18854,11 @@ winetricks_stats_report()
         # Yes, this can be fooled by caches.  That's ok.
 
         # Note: these downloads are expected to fail (the resource won't exist), so don't use w_try and use '|| true' to ignore the expected errors
-        if [ "${WINETRICKS_DOWNLOADER}" = "wget" ] ; then
+        if [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+            epm tool eget --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+                --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
+                --get-response "http://kegel.com/data/winetricks-usage?${report}" > /dev/null 2>&1 || true
+        elif [ "${WINETRICKS_DOWNLOADER}" = "wget" ] ; then
             ${torify} wget --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
                 --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
                 --spider "http://kegel.com/data/winetricks-usage?${report}" > /dev/null 2>&1 || true
