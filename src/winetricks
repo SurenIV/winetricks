@@ -1577,6 +1577,19 @@ w_download_to()
                 -o "${_W_file}" \
                 ${_W_agent:+--user-agent="${_W_agent}"} \
                 "${_W_url}"
+        elif [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+            epm tool eget \
+                -O "${_W_file}" \
+                -nd \
+                -c\
+                --read-timeout 300 \
+                --retry-connrefused \
+                --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+                --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
+                --header "Accept: */*" \
+                ${_W_cookiejar:+--load-cookies "${_W_cookiejar}"} \
+                ${_W_agent:+--user-agent="${_W_agent}"} \
+                "${_W_url}"
         else
             w_die "Here be dragons"
         fi
@@ -2851,7 +2864,7 @@ winetricks_download_setup()
 {
     # shellcheck disable=SC2104
     case "${WINETRICKS_DOWNLOADER}" in
-        aria2c|curl|wget|fetch) : ;;
+        aria2c|curl|wget|fetch|eget) : ;;
         "") if [ -x "$(command -v aria2c 2>/dev/null)" ] ; then
                 WINETRICKS_DOWNLOADER="aria2c"
             elif [ -x "$(command -v wget 2>/dev/null)" ] ; then
@@ -2927,6 +2940,9 @@ winetricks_dl_url_to_stdout()
     elif [ "${WINETRICKS_DOWNLOADER}" = "fetch" ] ; then
         # fetch does not support retry count
         ${torify} fetch -o - -T "${WINETRICKS_DOWNLOADER_TIMEOUT}" "$1" 2>/dev/null
+    elif [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+        epm tool eget -q -O - --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+        --tries "${WINETRICKS_DOWNLOADER_RETRIES}" "$1"
     else
         w_die "Please install aria2c, curl, or wget"
     fi
@@ -18855,6 +18871,10 @@ winetricks_stats_report()
                     --max-tries="${WINETRICKS_DOWNLOADER_RETRIES}" \
                     --save-session='' \
                     "http://kegel.com/data/winetricks-usage?${report}" > /dev/null 2>&1 || true
+        elif [ "${WINETRICKS_DOWNLOADER}" = "eget" ] ; then
+            epm tool eget --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
+                --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
+                --get-response "http://kegel.com/data/winetricks-usage?${report}" > /dev/null 2>&1 || true
         else
             w_die "Here be dragons"
         fi
