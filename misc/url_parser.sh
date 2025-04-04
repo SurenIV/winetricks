@@ -35,15 +35,6 @@ while IFS= read -r find_func ; do
     fi
 done < "${script_path}/../src/winetricks"
 
-{
-    echo ""
-    echo "w_metadata download_all_comp settings \\"
-    echo '    title="download_all_comp"'
-    echo ""
-    echo "load_download_all_comp()"
-    echo "{"
-} >> "./download_all_comp"
-
 for func_file in $(ls "${script_path}/winetricks-func"); do
     # Пропуская функцию загрузки обновленного winetricks.
     # Убрал загрузку, так как она выполняется во временный каталог и смысла загружать в cache нет.
@@ -65,15 +56,15 @@ for func_file in $(ls "${script_path}/winetricks-func"); do
         while read -r download_string; do
             case "${download_string}" in
                 # если w_download_to то пропускаем, строку менять не нужно
-                *w_download_to*) continue;;
+                *w_download_to*) download_string=$(echo "${download_string}" | sed 's|w_download_to ||g'); continue;;
                 # если w_download, то убераем из строки название функции что бы заменить на w_download_to
                 *w_download*) download_func_type="1"; download_string=$(echo "${download_string}" | sed 's|w_download ||g');;
             esac
 
             if [ "${download_func_type}" = "1" ]; then
-                echo "    w_download_to ${func_name} ${download_string}" >> "./download_all_comp"
+                echo "${func_name} ${download_string}" >> "./download_all_comp"
             else
-                echo "    ${download_string}" >> "./download_all_comp"
+                echo "${download_string}" >> "./download_all_comp"
             fi
 
             download_func_type="0"
@@ -84,5 +75,5 @@ for func_file in $(ls "${script_path}/winetricks-func"); do
     fi
 done
 
-echo "}" >> "./download_all_comp"
+
 rm -rf "${script_path}/winetricks-func"
